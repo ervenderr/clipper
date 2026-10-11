@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Clipper</title>
+<style>
+:root{
+  --paper:#e9ebf1; --panel:#ffffff; --ink:#131a2c; --steel:#6b7590; --line:#d3d8e4; --soft:#f3f4f8;
+  --cut:#e8412f; --cut-soft:#fde4e0; --ok:#1f7a55; --ok-soft:#dcf3e8; --warn:#a86a00; --warn-soft:#fbefd2;
+  --shadow:0 1px 2px rgba(19,26,44,.06),0 8px 24px -12px rgba(19,26,44,.18);
+  --radius:16px;
+}
+@media (prefers-color-scheme:dark){
+  :root{--paper:#0c111d; --panel:#161d2f; --ink:#e8ebf4; --steel:#8c97b1; --line:#283250; --soft:#1d2640;
+        --cut:#ff5a46; --cut-soft:#3a1f22; --ok:#4cc790; --ok-soft:#173629; --warn:#e0a03a; --warn-soft:#3a2d12;
+        --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6)}
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font:15px/1.5 "Avenir Next","Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1160px;margin:0 auto;padding:18px 18px 90px}
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+h1{font-size:22px;margin:0;font-weight:800;letter-spacing:-.02em;display:flex;align-items:center;gap:10px}
+.blade{width:10px;height:26px;background:var(--cut);transform:skewX(-14deg);border-radius:2px}
+.chips{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.chip{font-size:13px;padding:4px 11px;border-radius:99px;background:var(--panel);border:1px solid var(--line);color:var(--steel);display:flex;gap:6px;align-items:center}
+.chip b{color:var(--ink);font-variant-numeric:tabular-nums}
+.chip.bad{color:var(--cut);border-color:var(--cut)}
+.live{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+.chip.bad .live{background:var(--cut)}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin-bottom:18px;box-shadow:var(--shadow)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.grow{flex:1;min-width:200px}
+input[type=text],input[type=url],input[type=datetime-local],textarea,select{
+  font:inherit;color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:11px;padding:10px 12px;width:100%}
+select{width:auto;cursor:pointer}
+textarea{resize:vertical;line-height:1.45}
+:focus-visible{outline:2px solid var(--cut);outline-offset:2px}
+button{font:inherit;font-weight:600;border-radius:11px;padding:10px 16px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;transition:transform .12s,border-color .12s,filter .12s}
+button:hover{border-color:var(--steel)}
+button:active{transform:translateY(1px)}
+button:disabled{opacity:.5;cursor:default}
+button.go{background:var(--cut);border-color:var(--cut);color:#fff}
+button.go:hover{filter:brightness(1.08)}
+button.ghost{border-color:transparent;background:transparent;color:var(--steel)}
+.mut{color:var(--steel);font-size:13px}
+.err{color:var(--cut);font-weight:600}
+
+/* composer */
+.hero h2{font-size:26px;line-height:1.15;margin:0 0 4px;letter-spacing:-.02em}
+.hero p{margin:0 0 16px;color:var(--steel);max-width:60ch}
+.link-in{font-size:17px;padding:14px 16px}
+#found{display:none;margin-top:18px;padding-top:18px;border-top:1px dashed var(--line);grid-template-columns:260px 1fr;gap:20px}
+#found.on{display:grid}
+.srcthumb{position:relative;border-radius:12px;overflow:hidden;aspect-ratio:16/9;background:var(--soft);align-self:start}
+.srcthumb img{width:100%;height:100%;object-fit:cover;display:block}
+.srcthumb span{position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.78);color:#fff;font-size:12px;font-weight:700;padding:1px 7px;border-radius:6px;font-variant-numeric:tabular-nums}
+#fTitle{margin:0 0 2px;font-size:18px;line-height:1.3}
+.count{display:flex;align-items:center;gap:16px;margin:14px 0 10px}
+.count output{font-size:38px;font-weight:800;min-width:2ch;font-variant-numeric:tabular-nums;letter-spacing:-.04em;line-height:1}
+input[type=range]{flex:1;accent-color:var(--cut);min-width:140px}
+.auto{display:flex;gap:10px;align-items:flex-start;margin:12px 0 16px;padding:12px;background:var(--soft);border-radius:12px}
+.auto input{margin-top:4px;accent-color:var(--cut);width:18px;height:18px;flex:none}
+.auto b{display:block}
+
+/* pipeline */
+#stage{display:none}
+.chain{display:grid;grid-template-columns:repeat(4,1fr);position:relative;margin:4px 0 18px}
+.chain::before,.chain::after{content:"";position:absolute;left:12.5%;right:12.5%;top:13px;height:3px;border-radius:2px}
+.chain::before{background:var(--line)}
+.chain::after{background:var(--cut);transform-origin:left;transform:scaleX(var(--p,0));transition:transform .8s cubic-bezier(.3,.7,.2,1)}
+.node{position:relative;z-index:1;text-align:center;padding:0 4px}
+.dot{width:28px;height:28px;margin:0 auto 6px;border-radius:50%;background:var(--panel);border:3px solid var(--line);display:grid;place-items:center;transition:.4s}
+.node.active .dot{border-color:var(--cut);animation:pulse 1.4s ease-out infinite}
+.node.done .dot{background:var(--cut);border-color:var(--cut)}
+.node.done .dot::after{content:"";width:8px;height:13px;border:solid #fff;border-width:0 3px 3px 0;transform:rotate(45deg) translate(-1px,-1px)}
+.node b{display:block;font-size:14px}
+.node span{font-size:12px;color:var(--steel);font-variant-numeric:tabular-nums}
+@keyframes pulse{0%{box-shadow:0 0 0 0 var(--cut)}100%{box-shadow:0 0 0 12px transparent}}
+.strip{position:relative;height:84px;border-radius:12px;background:var(--soft);border:1px solid var(--line);overflow:hidden;margin-top:6px}
+.bars{position:absolute;inset:18px 0 8px;display:flex;align-items:center;gap:2px;padding:0 6px}
+.bars i{flex:1;background:var(--steel);opacity:.35;border-radius:2px}
+.strip.scan .bars i{animation:wave 1.6s ease-in-out infinite}
+@keyframes wave{0%,100%{opacity:.25}50%{opacity:.8}}
+.sweep{position:absolute;top:0;bottom:0;width:90px;left:-90px;background:linear-gradient(90deg,transparent,var(--cut-soft),transparent);display:none}
+.strip.scan .sweep{display:block;animation:sweep 2s linear infinite}
+@keyframes sweep{to{left:100%}}
+.cut{position:absolute;top:0;bottom:0;min-width:7px;background:var(--cut-soft);border-left:2px solid var(--cut);border-right:2px solid var(--cut);transform-origin:top;animation:drop .5s cubic-bezier(.2,1.4,.4,1) both}
+.cut.rendered{background:var(--cut);opacity:.9}
+.cut em{position:absolute;top:2px;left:3px;font:700 11px/1 inherit;font-style:normal;color:var(--cut)}
+.cut.rendered em{color:#fff}
+@keyframes drop{from{transform:scaleY(0);opacity:0}to{transform:scaleY(1);opacity:1}}
+.stripinfo{display:flex;justify-content:space-between;gap:12px;font-size:12px;color:var(--steel);margin-top:6px;font-variant-numeric:tabular-nums}
+.stripinfo #stripTitle{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#joblog{margin-top:10px;font-size:14px}
+
+/* results */
+.batch{position:sticky;top:0;z-index:5;display:flex;gap:10px 14px;flex-wrap:wrap;align-items:flex-end;margin:26px -18px 16px;padding:12px 18px;
+  background:color-mix(in srgb,var(--paper) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.batch h2{margin:0;font-size:20px;line-height:1.25;letter-spacing:-.01em}
+.seg{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:3px}
+.seg button{border:0;background:transparent;padding:6px 12px;border-radius:8px;color:var(--steel);font-size:14px}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--paper)}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:grid;grid-template-columns:128px minmax(0,1fr);box-shadow:var(--shadow)}
+.media{position:relative;background:#0b0f1a;cursor:pointer;min-height:228px}
+.media img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.media .play{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
+.media .play i{width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);display:grid;place-items:center;transition:transform .15s}
+.media:hover .play i{transform:scale(1.1)}
+.media .play i::after{content:"";border-left:12px solid #fff;border-top:8px solid transparent;border-bottom:8px solid transparent;margin-left:3px}
+.pill{font-size:12px;font-weight:700;padding:2px 9px;border-radius:99px;background:var(--soft);color:var(--steel);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pill.s-ok{background:var(--ok-soft);color:var(--ok)}.pill.s-up{background:var(--warn-soft);color:var(--warn)}.pill.s-bad{background:var(--cut-soft);color:var(--cut)}
+.dur{position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.72);color:#fff;pointer-events:none}
+.body{padding:12px 14px 12px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.meta{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--steel)}
+.meta .sp{margin-left:auto}
+.score{display:inline-flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}
+.score b{color:var(--ink)}
+.score i{display:block;width:44px;height:5px;border-radius:3px;background:var(--line);overflow:hidden}
+.score i::after{content:"";display:block;height:100%;width:calc(var(--s)*10%);background:var(--cut)}
+.body textarea.t{font-weight:700;font-size:16px;min-height:0;overflow:hidden;resize:none;line-height:1.3;background:transparent;border-color:transparent;padding:4px 6px;margin:0 -6px}
+.body textarea.t:hover:not(:disabled),.body textarea.t:focus{background:var(--soft);border-color:var(--line)}
+details summary{cursor:pointer;color:var(--steel);font-size:13px;list-style:none}
+details summary::before{content:"▸ ";display:inline-block;transition:transform .15s}
+details[open] summary::before{transform:rotate(90deg)}
+details textarea{margin-top:8px}
+.post{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:auto;padding-top:4px}
+.post select{flex:1 1 150px;min-width:0;padding:8px 10px;font-size:14px}
+.post .go{padding:8px 18px}
+.post .ghost{padding:8px 10px}
+.post input[type=datetime-local]{flex:1 1 100%;width:100%}
+.tools{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;margin-top:auto}
+.tools a{color:var(--steel)}
+.card.hide{display:none}
+.empty{grid-column:1/-1;padding:36px;text-align:center;color:var(--steel);border:1px dashed var(--line);border-radius:var(--radius)}
+#player{padding:0;border:0;background:#000;max-width:none;overflow:hidden;border-radius:16px}
+#player video{display:block;height:min(86vh,820px);max-width:94vw;aspect-ratio:9/16;background:#000}
+#player button{position:absolute;top:10px;right:10px;padding:6px 12px;background:rgba(0,0,0,.6);color:#fff;border-color:rgba(255,255,255,.3)}
+
+/* upcoming */
+.q{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:2px}
+.q li{display:grid;grid-template-columns:140px 1fr auto;gap:12px;align-items:center;padding:9px 6px;border-radius:9px}
+.q li:hover{background:var(--soft)}
+.q time{font-variant-numeric:tabular-nums;font-weight:600}
+.q span.t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.q a{color:var(--steel);font-size:13px}
+
+/* dialog + toasts */
+dialog{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);color:var(--ink);padding:22px;max-width:420px;box-shadow:var(--shadow)}
+dialog::backdrop{background:rgba(8,12,22,.55);backdrop-filter:blur(3px)}
+dialog p{margin:0 0 18px;font-size:16px}
+dialog .row{justify-content:flex-end}
+#toasts{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);display:grid;gap:8px;z-index:20;width:min(92vw,460px)}
+.toast{background:var(--ink);color:var(--paper);padding:12px 16px;border-radius:12px;box-shadow:var(--shadow);animation:rise .25s ease-out}
+.toast.bad{background:var(--cut);color:#fff}
+@keyframes rise{from{transform:translateY(8px);opacity:0}}
+
+@media (max-width:760px){
+  #found.on{grid-template-columns:1fr}
+  .chain{grid-template-columns:repeat(2,1fr);row-gap:14px}.chain::before,.chain::after{display:none}
+  .q li{grid-template-columns:1fr auto}.q time{grid-column:1/-1}
+  .batch{position:static;margin:20px 0 14px;padding:0;border:0;background:none;backdrop-filter:none}
+  .batch select,.batch .seg,.batch .go{flex:1 1 100%;width:100%}
+  .seg button{flex:1}
+}
+@media (max-width:980px){.grid{grid-template-columns:1fr}}
+@media (max-width:420px){.card{grid-template-columns:104px minmax(0,1fr)}.media{min-height:186px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span class="blade"></span>Clipper</h1>
+    <div class="chips" id="chips"></div>
+  </header>
+
+  <section class="panel hero" aria-labelledby="h2">
+    <h2 id="h2">Turn one long video into a week of Shorts</h2>
+    <p>Paste a YouTube link. Clipper finds the strongest moments, cuts them vertical, adds captions, and can schedule them to your channel.</p>
+    <div class="row">
+      <input id="url" class="link-in grow" type="url" placeholder="https://www.youtube.com/watch?v=…" autocomplete="off" aria-label="YouTube link">
+      <button id="probeBtn" class="go">Analyze video</button>
+    </div>
+    <div id="probeErr" class="err" role="alert"></div>
+
+    <div id="found">
+      <div class="srcthumb"><img id="fImg" alt=""><span id="fLen"></span></div>
+      <div>
+        <h3 id="fTitle"></h3>
+        <div class="mut" id="fMeta"></div>
+        <div class="count">
+          <div><div class="mut">Clips to make</div><output id="countOut" for="count">5</output></div>
+          <input id="count" type="range" min="1" max="20" value="5" aria-label="Number of clips">
+          <button id="autoCount" title="About one clip per 2.5 minutes of video">Use suggested</button>
+        </div>
+        <div class="auto">
+          <input type="checkbox" id="autoUp">
+          <div>
+            <label for="autoUp"><b>Upload every clip automatically when ready</b></label>
+            <div class="mut">Skips your review. Clips go to your channel as private videos.</div>
+            <select id="autoMode" aria-label="Auto-upload timing" style="margin-top:8px">
+              <option value="next_slot">Schedule into the next free slots</option>
+              <option value="private">Private, no schedule</option>
+            </select>
+          </div>
+        </div>
+        <button id="makeBtn" class="go">Make clips</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="stage" aria-live="polite">
+    <div class="chain" id="chain"></div>
+    <div class="strip scan" id="strip"><div class="bars" id="bars"></div><div class="sweep"></div></div>
+    <div class="stripinfo"><span>0:00</span><span id="stripTitle"></span><span id="stripEnd"></span></div>
+    <div id="joblog"></div>
+  </section>
+
+  <section id="results">
+    <div class="batch">
+      <div class="grow">
+        <div class="mut" id="batchMeta"></div>
+        <h2 id="batchTitle">Your clips</h2>
+      </div>
+      <select id="vids" aria-label="Past videos" style="max-width:260px"></select>
+      <div class="seg" role="group" aria-label="Filter clips" id="filters">
+        <button aria-pressed="true" data-f="all">All</button>
+        <button aria-pressed="false" data-f="ready">Ready</button>
+        <button aria-pressed="false" data-f="sched">Posted</button>
+      </div>
+      <select id="allMode" aria-label="Post all timing">
+        <option value="next_slot">Next free slots</option>
+        <option value="private">Private, no schedule</option>
+      </select>
+      <button id="postAll" class="go">Post all ready clips</button>
+    </div>
+    <div id="postLog" class="mut" style="margin-bottom:10px" aria-live="polite"></div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section class="panel" id="upcoming" style="display:none;margin-top:26px">
+    <h2 style="margin:0;font-size:18px">Going live next</h2>
+    <ul class="q" id="queue"></ul>
+  </section>
+</div>
+
+<dialog id="dlg"><p id="dlgMsg"></p><div class="row"><button id="dlgNo" class="ghost">Cancel</button><button id="dlgYes" class="go">Continue</button></div></dialog>
+<dialog id="player" aria-label="Clip preview"><video controls playsinline></video><button onclick="$('player').close()">Close</button></dialog>
+<div id="toasts" role="status"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function api(path,method='GET',body){
+  const r=await fetch(path,{method,headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.detail||('Request failed ('+r.status+')'));
+  return j;
+}
+const fmt=s=>{s=Math.round(s);const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;
+  return (h?h+':'+String(m).padStart(2,'0'):m)+':'+String(x).padStart(2,'0')};
+function toast(msg,bad){const t=document.createElement('div');t.className='toast'+(bad?' bad':'');t.textContent=msg;$('toasts').appendChild(t);setTimeout(()=>t.remove(),bad?6000:3500)}
+function ask(msg){return new Promise(res=>{$('dlgMsg').textContent=msg;const d=$('dlg');
+  const done=v=>{d.close();res(v)};$('dlgYes').onclick=()=>done(true);$('dlgNo').onclick=()=>done(false);d.oncancel=()=>res(false);d.showModal()})}
+let probe=null, tz='Asia/Manila', suggested=5, seen=new Set(), filter='all', lastClips=[];
+
+function chips(st){
+  const q=st.quota;
+  $('chips').innerHTML=
+   `<span class="chip ${st.signed_in?'':'bad'}"><i class="live"></i>${st.signed_in?'YouTube connected':'Not connected: run <b>clip.py auth</b>'}</span>`+
+   `<span class="chip"><b>${q.left}</b> uploads left today</span>`+
+   `<span class="chip">Slots <b>${esc(st.schedule.times.join(', '))}</b> ${esc(st.schedule.timezone)}</span>`;
+  tz=st.schedule.timezone;
+}
+
+/* ---------- analyze ---------- */
+async function doProbe(){
+  $('probeErr').textContent='';$('found').classList.remove('on');
+  const url=$('url').value.trim(); if(!url) return;
+  $('probeBtn').disabled=true;$('probeBtn').textContent='Reading video…';
+  try{
+    probe=await api('/api/probe','POST',{url}); probe.url=url;
+    suggested=probe.suggested;
+    $('fTitle').textContent=probe.title;
+    $('fMeta').textContent=`${probe.channel} · ${fmt(probe.duration)} long`;
+    $('fImg').src=`https://i.ytimg.com/vi/${encodeURIComponent(probe.video_id)}/hqdefault.jpg`;
+    $('fLen').textContent=fmt(probe.duration);
+    $('count').max=probe.max;$('count').value=suggested;$('countOut').textContent=suggested;
+    $('found').classList.add('on');
+  }catch(e){$('probeErr').textContent=e.message}
+  $('probeBtn').disabled=false;$('probeBtn').textContent='Analyze video';
+}
+$('probeBtn').onclick=doProbe;
+$('url').addEventListener('keydown',e=>{if(e.key==='Enter')doProbe()});
+$('count').oninput=()=>$('countOut').textContent=$('count').value;
+$('autoCount').onclick=()=>{$('count').value=suggested;$('countOut').textContent=suggested};
+
+$('makeBtn').onclick=async()=>{
+  const n=+$('count').value, auto=$('autoUp').checked?$('autoMode').value:null;
+  if(auto && !await ask(`This will upload up to ${n} clips to your YouTube channel without review. Continue?`)) return;
+  $('makeBtn').disabled=true; seen=new Set();
+  try{await api('/api/process','POST',{url:probe.url,count:n,auto});poll();$('stage').scrollIntoView({block:'start'})}
+  catch(e){toast(e.message,true)}
+  $('makeBtn').disabled=false;
+};
+
+/* ---------- pipeline view ---------- */
+const STAGES=[['download','Download'],['transcribe','Transcribe'],['select','Find moments'],['render','Cut and caption']];
+const ORDER=['starting','download','transcribe','select','render','uploading','done'];
+function bars(seed){
+  if($('bars').dataset.seed===seed) return;
+  $('bars').dataset.seed=seed; let h=0; for(const c of seed) h=(h*31+c.charCodeAt(0))>>>0;
+  let out=''; for(let i=0;i<110;i++){h=(h*1664525+1013904223)>>>0; const v=22+(h%70); out+=`<i style="height:${v}%;animation-delay:${(i%14)*90}ms"></i>`}
+  $('bars').innerHTML=out;
+}
+function renderJob(j){
+  $('stage').style.display='block';
+  const idx=ORDER.indexOf(j.stage), dur=(j.meta&&j.meta.duration)||1, finished=j.state==='done';
+  $('chain').innerHTML=STAGES.map(([k,name])=>{
+    const done=finished||idx>ORDER.indexOf(k), active=!finished&&j.stage===k;
+    const nx=ORDER[ORDER.indexOf(k)+1], t=j.stage_times[nx]??(k==='render'?j.stage_times.done:undefined);
+    const note=done&&t!==undefined?`${(t-(j.stage_times[k]||0)).toFixed(0)}s`
+      :active?(k==='select'&&j.words?`${j.words.toLocaleString()} words`:'working…'):'waiting';
+    return `<div class="node ${done?'done':active?'active':''}"><div class="dot"></div><b>${name}</b><span>${note}</span></div>`}).join('');
+  $('chain').style.setProperty('--p',finished?1:Math.max(0,Math.min(1,(idx-1)/3)));
+  if(j.meta){bars(j.video_id||j.meta.title);$('stripTitle').textContent=j.meta.title;$('stripEnd').textContent=fmt(dur)}
+  $('strip').classList.toggle('scan',['download','transcribe','select'].includes(j.stage)||(j.state==='running'&&j.stage==='starting'));
+  const strip=$('strip');
+  for(const p of j.picks){
+    let el=strip.querySelector(`[data-i="${p.index}"]`);
+    if(!el){el=document.createElement('div');el.className='cut';el.dataset.i=p.index;
+      el.style.left=(p.start/dur*100)+'%';el.style.width=Math.max(0.4,(p.end-p.start)/dur*100)+'%';
+      el.style.animationDelay=(p.index*90)+'ms';el.title=p.title;el.innerHTML=`<em>${p.index}</em>`;strip.appendChild(el)}
+    el.classList.toggle('rendered',j.rendered.includes(p.index));
+  }
+  if(j.state==='error') $('joblog').innerHTML=`<span class="err">Something went wrong: ${esc(j.error||'see log')}. The transcript is cached, so trying again is quick.</span>`;
+  else if(j.stage==='render') $('joblog').textContent=`Rendering clip ${Math.min(j.rendered.length+1,j.picks.length)} of ${j.picks.length}`;
+  else if(j.stage==='uploading') $('joblog').textContent='Uploading to YouTube…';
+  else if(finished) $('joblog').textContent=`${j.picks.length} clip${j.picks.length===1?' is':'s are'} ready below.`;
+  else $('joblog').textContent='';
+}
+
+/* ---------- polling ---------- */
+let timer=null;
+async function poll(){
+  clearTimeout(timer);
+  let st; try{st=await api('/api/status')}catch(e){timer=setTimeout(poll,3000);return}
+  chips(st);
+  const j=st.job, p=st.posting;
+  if(j) renderJob(j);
+  $('postLog').textContent=p.state==='running'?`Uploading ${Math.min(p.done+1,p.total)} of ${p.total}…`:(p.state!=='idle'&&p.log.length?p.log[p.log.length-1]:'');
+  const busy=(j&&j.state==='running')||p.state==='running';
+  $('postAll').disabled=busy;
+  if(busy){timer=setTimeout(poll,1000); if(p.state==='running') showClips()}
+  else if(j&&j.state==='done'&&j.video_id&&!seen.has('job'+j.id)){seen.add('job'+j.id);await loadVids(j.video_id);loadQueue()}
+}
+
+/* ---------- results ---------- */
+async function loadVids(select){
+  const v=await api('/api/videos');
+  const cur=select||$('vids').value;
+  $('vids').innerHTML=v.map(x=>`<option value="${esc(x.id)}" ${x.id===cur?'selected':''}>${esc(x.title)} (${x.clips})</option>`).join('');
+  if(v.length) await showClips();
+  else{$('batchTitle').textContent='No clips yet';$('batchMeta').textContent='';$('grid').innerHTML='<div class="empty">Paste a link above and your first batch will land here.</div>'}
+}
+function stateOf(c){
+  const past=c.publish_at&&new Date(c.publish_at)<new Date();
+  if(c.upload_started&&!c.youtube_id) return ['Uploading','s-up','sched'];
+  if(c.status==='failed') return ['Failed','s-bad','ready'];
+  if(c.status==='scheduled'&&!past) return ['Goes live '+new Date(c.publish_at).toLocaleString([], {timeZone:tz,month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}),'s-ok','sched'];
+  if(c.status==='scheduled'||c.status==='uploaded') return [c.publish_at?'Published':'Private','s-ok','sched'];
+  return ['Ready','','ready'];
+}
+function grow(el){el.style.height='auto';el.style.height=el.scrollHeight+'px'}
+async function showClips(){
+  const id=$('vids').value; if(!id) return;
+  const d=await api('/api/videos/'+id);
+  lastClips=d.clips;
+  const sel=$('vids').selectedOptions[0];
+  $('batchTitle').textContent=d.title||sel?.textContent.replace(/ \(\d+\)$/,'')||id;
+  const posted=d.clips.filter(c=>['scheduled','uploaded'].includes(c.status)).length;
+  $('batchMeta').textContent=`${d.clips.length} clips · ${posted} posted${d.channel?' · from '+d.channel:''}`;
+  const open=new Set([...document.querySelectorAll('.card details[open]')].map(x=>x.closest('.card').dataset.n));
+  const typed={}; document.querySelectorAll('.card textarea.t').forEach(t=>{if(document.activeElement===t)typed[t.id]=t.value});
+  $('grid').innerHTML=d.clips.map(c=>{
+    const [label,cls,grp]=stateOf(c), editable=['pending','approved','failed'].includes(c.status)&&!c.upload_started;
+    return `<article class="card" data-n="${c.index}" data-g="${grp}">
+      <div class="media" role="button" tabindex="0" aria-label="Play clip ${c.index}" onclick="play('${esc(id)}','${esc(c.file)}')" onkeydown="if(event.key==='Enter')this.click()">
+        <img loading="lazy" alt="Clip ${c.index} preview" src="/thumb/${esc(id)}/${c.index}">
+        <div class="play"><i></i></div>
+        <span class="pill dur">${fmt(c.end-c.start)}</span>
+      </div>
+      <div class="body">
+        <div class="meta"><span>Clip ${c.index}</span><span class="score" title="Moment score">Score <b>${c.score}</b><i style="--s:${Math.max(0,Math.min(10,+c.score||0))}"></i></span><span class="pill sp ${cls}">${esc(label)}</span></div>
+        <textarea class="t" id="t${c.index}" rows="2" maxlength="100" aria-label="Title" ${editable?'':'disabled'}>${esc(c.yt_title)}</textarea>
+        <details ${open.has(String(c.index))?'open':''}><summary>Description and tags</summary>
+          <textarea id="d${c.index}" rows="8" ${editable?'':'disabled'} aria-label="Description">${esc(c.description)}</textarea>
+          <label class="mut" style="display:block;margin-top:6px"><input type="checkbox" id="a${c.index}" ${c.ai_altered?'checked':''} ${editable?'':'disabled'}> Contains realistic altered or synthetic content</label>
+        </details>
+        ${c.error?`<div class="err">${esc(c.error)}</div>`:''}
+        ${c.youtube_id?`<div class="tools"><a href="https://youtu.be/${esc(c.youtube_id)}" target="_blank" rel="noopener">Open on YouTube</a></div>`:''}
+        ${editable?`<div class="post">
+          <select id="m${c.index}" aria-label="When to post">
+            <option value="next_slot">Next free slot</option><option value="at">Pick a time</option><option value="private">Private, no schedule</option></select>
+          <button class="go" onclick="postOne(${c.index})">Post</button>
+          <button class="ghost" onclick="del(${c.index})" aria-label="Delete clip ${c.index}">Delete</button>
+          <input type="datetime-local" id="w${c.index}" style="display:none" aria-label="Publish time">
+        </div>`:''}
+      </div></article>`}).join('')||'<div class="empty">All clips deleted.</div>';
+  d.clips.forEach(c=>{const m=$('m'+c.index);if(m)m.onchange=()=>$('w'+c.index).style.display=m.value==='at'?'block':'none'});
+  document.querySelectorAll('textarea.t').forEach(t=>{if(typed[t.id])t.value=typed[t.id];grow(t);t.oninput=()=>grow(t)});
+  applyFilter();
+}
+function play(id,file){
+  const d=$('player'),v=d.querySelector('video');v.src=`/files/${id}/${file}`;d.showModal();v.play().catch(()=>{});
+}
+$('player').addEventListener('close',()=>{const v=$('player').querySelector('video');v.pause();v.removeAttribute('src');v.load()});
+$('player').addEventListener('click',e=>{if(e.target===$('player'))$('player').close()});
+function applyFilter(){document.querySelectorAll('.card').forEach(c=>c.classList.toggle('hide',filter!=='all'&&c.dataset.g!==filter))}
+$('filters').onclick=e=>{const b=e.target.closest('button');if(!b)return;filter=b.dataset.f;
+  document.querySelectorAll('#filters button').forEach(x=>x.setAttribute('aria-pressed',x===b));applyFilter()};
+$('vids').onchange=showClips;
+
+async function saveEdits(n){
+  await api(`/api/videos/${$('vids').value}/clips/${n}`,'PATCH',
+    {yt_title:$('t'+n).value,description:$('d'+n).value,ai_altered:$('a'+n).checked});
+}
+async function postOne(n){
+  const mode=$('m'+n).value; let at=null;
+  if(mode==='at'){const w=$('w'+n).value; if(!w){toast('Pick a date and time first.',true);return}at=new Date(w).toISOString()}
+  const btn=document.querySelector(`.card[data-n="${n}"] .post .go`); btn.disabled=true;btn.textContent='Uploading…';
+  try{await saveEdits(n);await api(`/api/videos/${$('vids').value}/clips/${n}/post`,'POST',{mode,at});toast(`Clip ${n} posted.`)}
+  catch(e){toast(e.message,true)}
+  poll(); showClips(); loadQueue();
+}
+async function del(n){
+  if(!await ask(`Delete clip ${n}? This removes the video file.`)) return;
+  try{await api(`/api/videos/${$('vids').value}/clips/${n}`,'DELETE');toast(`Clip ${n} deleted.`)}catch(e){toast(e.message,true)}
+  showClips();
+}
+$('postAll').onclick=async()=>{
+  const id=$('vids').value; if(!id) return;
+  const ready=lastClips.filter(c=>['pending','approved'].includes(c.status)&&!c.upload_started).length;
+  if(!ready){toast('Nothing left to post in this batch.');return}
+  if(!await ask(`Upload ${ready} clip${ready===1?'':'s'} to your YouTube channel?`)) return;
+  try{for(const el of document.querySelectorAll('.card .post')){await saveEdits(el.closest('.card').dataset.n)}
+    await api(`/api/videos/${id}/post-all`,'POST',{mode:$('allMode').value});poll()}catch(e){toast(e.message,true)}
+};
+
+/* ---------- upcoming ---------- */
+async function loadQueue(){
+  const q=await api('/api/queue');
+  $('upcoming').style.display=q.length?'block':'none';
+  $('queue').innerHTML=q.slice(0,8).map(r=>`<li><time>${esc(new Date(r.publish_at).toLocaleString([],{timeZone:tz,weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}))}</time>
+    <span class="t">${esc(r.title)}</span><a href="https://youtu.be/${esc(r.youtube_id)}" target="_blank" rel="noopener">Open</a></li>`).join('');
+}
+poll().then(()=>{loadVids();loadQueue()});
+</script>
+</body>
+</html>
